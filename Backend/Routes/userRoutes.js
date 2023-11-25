@@ -6,7 +6,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 userRoutes.post("/register", async (req, res) => {
-  const { email, name, password } = req.body;
+  const { email, name, password,isAdmin } = req.body;
   if (!email || !name || !password) {
     return res.status(400).json({ error: "All field required" });
   }
@@ -31,6 +31,7 @@ userRoutes.post("/register", async (req, res) => {
         email,
         name,
         password: hashedPassword,
+        isAdmin
       },
     });
 
@@ -69,5 +70,51 @@ userRoutes.post("/login", async (req, res) => {
     return res.status(500).json({ error: "Login failed" });
   }
 });
+
+userRoutes.get('/allusers',async(req,res)=>{
+  try {
+    const allusers = await prisma.User.findMany();
+    res.status(200).json(allusers);
+    
+  } catch (error) {
+    res.status(500).json({ error: 'Error fetching users' });
+  }
+})
+
+// Update isAdmin field of a user by ID
+userRoutes.put('/users/:userId', async (req, res) => {
+  const userId = req.params.userId;
+  const { isAdmin } = req.body;
+
+  try {
+    // Check if the user exists
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update isAdmin field only
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        isAdmin: isAdmin !== undefined ? isAdmin : user.isAdmin, // Update isAdmin if provided, else keep the existing value
+      },
+    });
+
+    res.status(200).json({ message: 'isAdmin updated successfully', user: updatedUser });
+  } catch (error) {
+    res.status(500).json({ error: 'Error updating isAdmin' });
+  }
+});
+
+
+
 
 module.exports = { userRoutes };
