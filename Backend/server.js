@@ -17,6 +17,6 @@ app.use('/post',postRoutes)
 // Register endpoint
 
 
-app.listen(7000, () => {
-  console.log('Server is running on port 7000');
+app.listen(process.env.PORT, () => {
+  console.log(`Server is running on port 7000${process.env.PORT}`);
 });
