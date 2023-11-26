@@ -5,15 +5,14 @@ const prisma = new PrismaClient();
 const postRoutes = express.Router();
 
 // Create a new post
-postRoutes.post('/posts', async (req, res) => {
-    const { title, content, authorId } = req.body;
-  
+postRoutes.post('/posts',verifyToken, async (req, res) => {
+    const { title, content } = req.body;
     try {
       const newPost = await prisma.Post.create({
         data: {
           title,
           content,
-          authorId,
+          authorId:req.user,
         },
       });
   
@@ -57,7 +56,8 @@ postRoutes.get('/posts/:postId', async (req, res) => {
   });
 
   // Update a post by ID
-  postRoutes.put('/posts/:postId', verifyToken, async (req, res) => {
+  postRoutes.put('/:postId', verifyToken, async (req, res) => {
+    console.log("hi")
     const postId = req.params.postId;
     const { title, content } = req.body;
   
@@ -67,12 +67,19 @@ postRoutes.get('/posts/:postId', async (req, res) => {
           id: postId,
         },
       });
-  
+
       if (!post) {
         return res.status(404).json({ error: 'Post not found' });
       }
-  
-      if (req.user.id === post.authorId || req.user.isAdmin) {
+      const User = await prisma.User.findUnique({
+        where: {
+          id: req.user,
+        },
+      });
+      if(!User){
+        return res.status(404).json({ error: 'Login please' });
+      }
+      if (req.user === post.authorId || User.isAdmin) {
         const updatedPost = await prisma.post.update({
           where: {
             id: postId,
@@ -93,9 +100,16 @@ postRoutes.get('/posts/:postId', async (req, res) => {
   });
   
 // Delete a post by ID
-postRoutes.delete('/posts/:postId', verifyToken, async (req, res) => {
+postRoutes.delete('/:postId', verifyToken, async (req, res) => {
     const postId = req.params.postId;
-  
+    const User = await prisma.User.findUnique({
+      where: {
+        id: req.user,
+      },
+    });
+    if(!User){
+      return res.status(404).json({ error: 'Login please' });
+    }
     try {
       const post = await prisma.post.findUnique({
         where: {
@@ -109,8 +123,8 @@ postRoutes.delete('/posts/:postId', verifyToken, async (req, res) => {
       if (!post) {
         return res.status(404).json({ error: 'Post not found' });
       }
-  
-      if (req.user.id === post.authorId || req.user.isAdmin) {
+  console.log(req.user,post.authorId)
+      if (req.user === post.authorId || User.isAdmin) {
         await prisma.post.delete({
           where: {
             id: postId,

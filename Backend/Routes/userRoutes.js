@@ -4,6 +4,7 @@ const prisma = new PrismaClient();
 const userRoutes = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { verifyToken } = require("../middleware/JWTverify");
 
 userRoutes.post("/register", async (req, res) => {
   const { email, name, password,isAdmin } = req.body;
@@ -45,6 +46,7 @@ userRoutes.post("/register", async (req, res) => {
 
 userRoutes.post("/login", async (req, res) => {
   const { email, password } = req.body;
+  console.log(email,password)
   try {
       // Find the user by email
       const user = await prisma.User.findUnique({
@@ -82,10 +84,21 @@ userRoutes.get('/allusers',async(req,res)=>{
 })
 
 // Update isAdmin field of a user by ID
-userRoutes.put('/users/:userId', async (req, res) => {
+userRoutes.put('/makeadmin/:userId',verifyToken, async (req, res) => {
   const userId = req.params.userId;
-  const { isAdmin } = req.body;
+  
+  const User = await prisma.User.findUnique({
+    where: {
+      id: req.user,
+    },
+  });
+  if(!User){
+    return res.status(404).json({ error: 'Login please' });
+  }
+  console.log(User)
+  if(User.isAdmin){
 
+ 
   try {
     // Check if the user exists
     const user = await prisma.user.findUnique({
@@ -99,12 +112,13 @@ userRoutes.put('/users/:userId', async (req, res) => {
     }
 
     // Update isAdmin field only
+    
     const updatedUser = await prisma.user.update({
       where: {
         id: userId,
       },
       data: {
-        isAdmin: isAdmin !== undefined ? isAdmin : user.isAdmin, // Update isAdmin if provided, else keep the existing value
+        isAdmin: true, // Update isAdmin if provided, else keep the existing value
       },
     });
 
@@ -112,8 +126,58 @@ userRoutes.put('/users/:userId', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Error updating isAdmin' });
   }
+}
+else{
+  return res.status(404).json({ error: 'only Admin allowed' });
+}
 });
 
+
+
+//deleteuser
+userRoutes.delete('/deleteuser/:userId', verifyToken, async (req, res) => {
+  const userId = req.params.userId;
+  
+  try {
+    // Check if the user making the request is an admin
+    const requestingUser = await prisma.User.findUnique({
+      where: {
+        id: req.user,
+      },
+    });
+
+    if (!requestingUser) {
+      return res.status(404).json({ error: 'Login please' });
+    }
+
+    // Check if the requesting user is an admin
+    if (!requestingUser.isAdmin) {
+      return res.status(403).json({ error: 'Only admins can delete users' });
+    }
+
+    // Find the user by ID
+    const userToDelete = await prisma.User.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!userToDelete) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Delete the user
+    await prisma.User.delete({
+      where: {
+        id: userId,
+      },
+    });
+
+    res.status(200).json({ message: 'User deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error deleting user' });
+  }
+});
 
 
 
